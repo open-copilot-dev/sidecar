@@ -1,14 +1,19 @@
 package completion
 
-type CompletionRequest struct {
-	UUID           string         `json:"uuid"`
-	DocModifySeq   int            `json:"docModifySeq"`
-	Language       string         `json:"language"`
-	CompletionLine CompletionLine `json:"completionLine"`
-	TriggerType    string         `json:"triggerType"`
+// Request 代码补全请求
+type Request struct {
+	UUID             string `json:"uuid"`
+	ProjectPath      string `json:"projectPath"`
+	DocPath          string `json:"docPath"`
+	DocModifySeq     int    `json:"docModifySeq"`
+	Language         string `json:"language"`
+	TextBeforeCursor string `json:"textBeforeCursor"`
+	TextAfterCursor  string `json:"textAfterCursor"`
+	CompletionLine   Line   `json:"completionLine"`
+	TriggerType      string `json:"triggerType"`
 }
 
-type CompletionLine struct {
+type Line struct {
 	CurrentLineNum         int    `json:"currentLineNum"`
 	TotalLineCount         int    `json:"totalLineCount"`
 	CurrentLineStartOffset int    `json:"currentLineStartOffset"`
@@ -17,5 +22,17 @@ type CompletionLine struct {
 	NextLineIndent         int    `json:"nextLineIndent"`
 }
 
-type CompletionResult struct {
+// Result 代码补全结果
+type Result struct {
+	Choices []*Choice `json:"choices"`
+}
+
+type Choice struct {
+	Edits []*Edit `json:"edits"`
+}
+
+type Edit struct {
+	StartOffset int    `json:"startOffset"`
+	EndOffset   int    `json:"endOffset"`
+	Text        string `json:"text"`
 }

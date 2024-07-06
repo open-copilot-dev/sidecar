@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
@@ -68,47 +69,48 @@ func (h *wsConnHandler) processRequests() {
 	}
 
 	// 解析 request
-	var req = new(Request)
-	err := json.Unmarshal(frame.Body, &req)
+	var wsRequest = new(Request)
+	err := json.Unmarshal(frame.Body, &wsRequest)
 	if err != nil {
 		hlog.Error("ws unmarshal:", err)
 		return
 	}
-	hlog.Debugf("ws req: %s", req.String())
+	hlog.Debugf("wsRequest: %s", wsRequest.String())
 
 	// 处理 request
-	if req.Method == "completion" {
-		params := make([]completion.CompletionRequest, 0)
-		err = json.Unmarshal(*req.Params, &params)
+	if wsRequest.Method == "completion" {
+		completionParams := make([]completion.Request, 0)
+		err = json.Unmarshal(*wsRequest.Params, &completionParams)
 		if err != nil {
 			hlog.Error("ws unmarshal:", err)
-			h.sendError(req, err)
+			h.sendError(wsRequest, err)
 			return
 		}
-		if len(params) == 0 {
-			hlog.Error("ws completion req is empty")
-			h.sendError(req, errors.New("no completion request"))
+		if len(completionParams) == 0 {
+			hlog.Error("ws completion params is empty")
+			h.sendError(wsRequest, errors.New("no completion params"))
 			return
 		}
 		wsPool.Go(func() {
-			result, err := completion.ProcessRequest(&params[0])
+			ctx := context.Background()
+			completionResult, err := completion.ProcessRequest(ctx, &completionParams[0])
 			if err != nil {
 				hlog.Error("ws completion err:", err)
-				h.sendError(req, err)
+				h.sendError(wsRequest, err)
 				return
 			}
-			h.sendResult(req, result)
+			h.send(&Response{
+				Id:     wsRequest.Id,
+				Result: completionResult,
+			})
 			return
 		})
 	}
 }
 
-func (h *wsConnHandler) sendError(req *Request, err error) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	sendErr := h.conn.WriteJSON(&Response{
-		Id:     req.Id,
+func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
+	h.send(&Response{
+		Id:     wsRequest.Id,
 		Result: nil,
 		Error: &Error{
 			Code:    -1,
@@ -116,20 +118,23 @@ func (h *wsConnHandler) sendError(req *Request, err error) {
 			Data:    nil,
 		},
 	})
-	if sendErr != nil {
-		hlog.Error("ws write:", sendErr)
-	}
 }
 
-func (h *wsConnHandler) sendResult(req *Request, result any) {
+func (h *wsConnHandler) send(resp *Response) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	sendErr := h.conn.WriteJSON(&Response{
-		Id:     req.Id,
-		Result: result,
-	})
+	bodyBytes, err := json.Marshal(resp)
+	if err != nil {
+		hlog.Error("ws send marshal:", err)
+		return
+	}
+
+	header := fmt.Sprintf("Content-Length: %d\r\n", len(bodyBytes))
+	msg := header + "\r\n" + string(bodyBytes)
+
+	sendErr := h.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	if sendErr != nil {
-		hlog.Error("ws write:", sendErr)
+		hlog.Error("ws send write:", sendErr)
 	}
 }
