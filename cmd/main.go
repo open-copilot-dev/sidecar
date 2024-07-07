@@ -9,6 +9,8 @@ import (
 var addr = flag.String("addr", "localhost:30999", "http service address")
 
 func main() {
+	initLog()
+
 	flag.Parse()
 	h := server.Default(server.WithHostPorts(*addr))
 	h.NoHijackConnPool = true

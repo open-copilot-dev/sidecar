@@ -2,6 +2,9 @@ package ws
 
 import "encoding/json"
 
+//----------------------------------------
+// jsonrpc request
+
 type Request struct {
 	Method string           `json:"method"`
 	Params *json.RawMessage `json:"params"`
@@ -15,6 +18,9 @@ func (req *Request) String() string {
 	}
 	return string(jsonBytes)
 }
+
+//----------------------------------------
+// jsonrpc response
 
 type Response struct {
 	Id     *json.RawMessage `json:"id"`
