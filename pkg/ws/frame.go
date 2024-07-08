@@ -70,8 +70,13 @@ func ReadFrameHeader(bs []byte) (*FrameHeader, int) {
 		line := string(bs[:idx+1])
 		bs = bs[idx+1:]
 		if line == "" || line == "\n" || line == "\r\n" {
-			// 空行，代表header结束了
-			break
+			if contentLength == nil {
+				// 空行，还没遇到header
+				continue
+			} else {
+				// 空行，代表header结束了
+				break
+			}
 		}
 		colon := strings.IndexRune(line, ':')
 		if colon < 0 {

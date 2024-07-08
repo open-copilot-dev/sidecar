@@ -12,6 +12,14 @@ func TestMarkdownProcessor_process(t *testing.T) {
 	var modelText string
 	var text string
 
+	modelText = "`int a=1;`"
+	text = markdownProcessor.process(c, modelText)
+	assert.Equal(t, "int a=1;", text)
+
+	modelText = "`int a=1;` aaa `int b=1;`"
+	text = markdownProcessor.process(c, modelText)
+	assert.Equal(t, "int a=1;", text)
+
 	modelText = "```\nint a=1;\n```"
 	text = markdownProcessor.process(c, modelText)
 	assert.Equal(t, "int a=1;", text)

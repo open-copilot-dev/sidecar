@@ -7,7 +7,7 @@ import (
 )
 
 func TestReadFrameHeader(t *testing.T) {
-	strHeader := "Content-Length: 3\r\n"
+	strHeader := "\r\nContent-Length: 3\r\n"
 	strBody := "abc"
 	bs := []byte(strHeader + "\r\n" + strBody)
 	header, readLen := ReadFrameHeader(bs)

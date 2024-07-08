@@ -141,7 +141,7 @@ func (h *wsConnHandler) send(resp *Response) {
 	}
 
 	header := fmt.Sprintf("Content-Length: %d\r\n", len(bodyBytes))
-	msg := header + "\r\n" + string(bodyBytes)
+	msg := header + "\r\n" + string(bodyBytes) + "\r\n"
 
 	sendErr := h.conn.WriteMessage(websocket.TextMessage, []byte(msg))
 	if sendErr != nil {
