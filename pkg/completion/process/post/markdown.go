@@ -9,10 +9,10 @@ import (
 type MarkdownProcessor struct {
 }
 
-var re1 = regexp.MustCompile("```[a-zA-Z]+\n(.*)\n```")
-var re2 = regexp.MustCompile("```\n(.*)\n```")
-var re3 = regexp.MustCompile("```(.*)```")
-var re4 = regexp.MustCompile("`(.*)`")
+var re1 = regexp.MustCompile("```[a-zA-Z]+\n([\\s\\S]*)\n```")
+var re2 = regexp.MustCompile("```\n([\\s\\S]*)\n```")
+var re3 = regexp.MustCompile("```([\\s\\S]*)```")
+var re4 = regexp.MustCompile("`([\\s\\S]*)`")
 
 func (m *MarkdownProcessor) process(c *domain.CompletionContext, modelText string) string {
 	blockStartIndex := strings.Index(modelText, "```")

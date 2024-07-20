@@ -55,4 +55,8 @@ func TestMarkdownProcessor_process(t *testing.T) {
 	modelText = "```java\nint a=1;\n```\naaa\n```\nint a=2;\n```"
 	text = markdownProcessor.process(c, modelText)
 	assert.Equal(t, "int a=1;", text)
+
+	modelText = "```java\nif (args.length > 0) {\n    // 这里添加具体的处理逻辑\n}\n```"
+	text = markdownProcessor.process(c, modelText)
+	assert.Equal(t, "if (args.length > 0) {\n    // 这里添加具体的处理逻辑\n}", text)
 }

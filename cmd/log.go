@@ -11,14 +11,15 @@ import (
 	"time"
 )
 
-func initLog() {
+func initLog(debug *bool) {
+	// 日志目录
 	logDir := "./logs/"
 	if err := os.MkdirAll(logDir, 0o777); err != nil {
 		log.Println(err.Error())
 		return
 	}
 
-	// 将文件名设置为日期
+	// 日志文件
 	logFileName := time.Now().Format("2006-01-02") + ".log"
 	fileName := path.Join(logDir, logFileName)
 	if _, err := os.Stat(fileName); err != nil {
@@ -28,20 +29,24 @@ func initLog() {
 		}
 	}
 
+	// 日志对象
 	logger := hertzlogrus.NewLogger(hertzlogrus.WithHook(&LogIdHook{}))
-	// 提供压缩和删除
-	lumberjackLogger := &lumberjack.Logger{
+	logger.SetOutput(&lumberjack.Logger{
 		Filename:   fileName,
-		MaxSize:    20,   // 一个文件最大可达 20M。
-		MaxBackups: 5,    // 最多同时保存 5 个文件。
-		MaxAge:     10,   // 一个文件最多可以保存 10 天。
+		MaxSize:    20, // 一个文件最大可达 20M。
+		MaxAge:     10, // 一个文件最多可以保存 10 天。
+		MaxBackups: 5,  // 最多同时保存 5 个文件。
+		LocalTime:  true,
 		Compress:   true, // 用 gzip 压缩。
-	}
-
-	logger.SetOutput(lumberjackLogger)
-	logger.SetLevel(hlog.LevelInfo)
-
+	})
 	hlog.SetLogger(logger)
+
+	// 日志级别
+	if debug != nil && *debug {
+		hlog.SetLevel(hlog.LevelDebug)
+	} else {
+		hlog.SetLevel(hlog.LevelInfo)
+	}
 }
 
 type LogIdHook struct{}

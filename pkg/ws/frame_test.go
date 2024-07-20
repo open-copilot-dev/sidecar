@@ -2,6 +2,7 @@ package ws
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/cloudwego/hertz/pkg/common/test/assert"
 	"testing"
 )
@@ -84,4 +85,6 @@ func TestReadFrame(t *testing.T) {
 	frame = ReadFrame(buffer)
 	assert.Assert(t, string(frame.Body) == "abc")
 	assert.Assert(t, string(buffer.Bytes()) == "def")
+
+	fmt.Println(len("{\"id\":\"eb6cccb5-d258-44ae-8272-a8e0b32a1f0f\",\"result\":{\"choices\":[{\"edits\":[{\"startOffset\":275,\"endOffset\":275,\"text\":\"```java\\n        if (args.length \\u003e 0) {\\n            // 在这里添加具体的逻辑处理\\n        }\\n```\",\"type\":\"INSERT\"}]}]},\"error\":null}"))
 }

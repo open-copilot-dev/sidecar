@@ -10,6 +10,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/hertz-contrib/websocket"
+	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/completion"
 	"open-copilot.dev/sidecar/pkg/completion/domain"
 	"sync"
@@ -36,9 +37,10 @@ func Handler(ctx context.Context, c *app.RequestContext) {
 
 // websocket connection handler
 type wsConnHandler struct {
-	conn  *websocket.Conn
-	buf   bytes.Buffer
-	mutex sync.Mutex
+	conn      *websocket.Conn // 连接
+	readBuf   bytes.Buffer    // 消息读取缓冲
+	sendMutex sync.Mutex      // 消息发送锁
+	reqCtxMap sync.Map        // 请求上下文
 }
 
 // ws message spin
@@ -50,12 +52,12 @@ func (h *wsConnHandler) spin(ctx context.Context) {
 			break
 		}
 		hlog.CtxDebugf(ctx, "ws recv: %s", message)
-		h.buf.Write(message)
+		h.readBuf.Write(message)
 		h.processRequests(ctx)
-		if h.buf.Len() > wsMaxBufSize {
+		if h.readBuf.Len() > wsMaxBufSize {
 			// TODO 这边应该断开连接，因为直接清空缓冲池，可能导致消息错乱
-			hlog.CtxErrorf(ctx, "ws buf is full, just clear it")
-			h.buf.Reset()
+			hlog.CtxErrorf(ctx, "ws readBuf is full, just clear it")
+			h.readBuf.Reset()
 		}
 	}
 
@@ -66,7 +68,7 @@ func (h *wsConnHandler) spin(ctx context.Context) {
 func (h *wsConnHandler) processRequests(ctx context.Context) {
 	for {
 		// 获取数据帧
-		frame := ReadFrame(&h.buf)
+		frame := ReadFrame(&h.readBuf)
 		if frame == nil {
 			return
 		}
@@ -80,41 +82,75 @@ func (h *wsConnHandler) processRequests(ctx context.Context) {
 		}
 		hlog.CtxDebugf(ctx, "wsRequest: %s", wsRequest.String())
 
-		// 处理请求
-		h.processRequest(ctx, wsRequest)
+		// 请求上下文
+		reqCtx := common.NewCancelableContext(context.WithValue(ctx, "X-Request-ID", wsRequest.Id))
+		h.reqCtxMap.Store(wsRequest.Id, reqCtx)
+
+		// 异步处理
+		wsPool.Go(func() {
+			defer h.reqCtxMap.Delete(wsRequest.Id)
+			h.processRequest(reqCtx, wsRequest)
+		})
 	}
 }
 
-func (h *wsConnHandler) processRequest(ctx context.Context, wsRequest *Request) {
-	ctx = context.WithValue(ctx, "X-Request-ID", wsRequest.Id)
+func (h *wsConnHandler) processRequest(ctx *common.CancelableContext, wsRequest *Request) {
 	// 处理 request
 	if wsRequest.Method == "completion" {
-		completionParams := make([]domain.CompletionRequest, 0)
-		err := json.Unmarshal(*wsRequest.Params, &completionParams)
-		if err != nil {
-			hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
-			h.sendError(wsRequest, err)
-			return
-		}
-		if len(completionParams) == 0 {
-			hlog.CtxErrorf(ctx, "ws completion params is empty")
-			h.sendError(wsRequest, errors.New("no completion params"))
-			return
-		}
-		wsPool.Go(func() {
-			ctx := context.Background()
-			completionResult, err := completion.ProcessRequest(ctx, &completionParams[0])
-			if err != nil {
-				hlog.CtxErrorf(ctx, "ws completion err: %v", err)
-				h.sendError(wsRequest, err)
-				return
-			}
-			h.send(&Response{
-				Id:     wsRequest.Id,
-				Result: completionResult,
-			})
-			return
-		})
+		h.processCompletionRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "$/cancelRequest" {
+		h.processCancelRequest(ctx, wsRequest)
+	}
+}
+
+func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	completionParams := make([]domain.CompletionRequest, 0)
+	err := json.Unmarshal(*wsRequest.Params, &completionParams)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	if len(completionParams) == 0 {
+		hlog.CtxErrorf(ctx, "ws completion params is empty")
+		h.sendError(wsRequest, errors.New("no completion params"))
+		return
+	}
+	completionResult, err := completion.ProcessRequest(ctx, &completionParams[0])
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws completion err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Id:     wsRequest.Id,
+		Result: completionResult,
+	})
+	return
+}
+
+func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	type cancelParam struct {
+		ID string `json:"id"`
+	}
+	params := make([]cancelParam, 0)
+	err := json.Unmarshal(*wsRequest.Params, &params)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		return
+	}
+	if len(params) == 0 {
+		hlog.CtxErrorf(ctx, "ws Cancel params is empty")
+		return
+	}
+
+	val, ok := h.reqCtxMap.LoadAndDelete(params[0].ID)
+	if !ok {
+		return
+	}
+	willCancelReqCtx := val.(*common.CancelableContext)
+	if willCancelReqCtx != nil {
+		willCancelReqCtx.Cancel()
 	}
 }
 
@@ -131,8 +167,12 @@ func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 }
 
 func (h *wsConnHandler) send(resp *Response) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
+	if resp.Id == "" {
+		hlog.Errorf("will not send because resp id is empty, resp: %+v", *resp)
+		return
+	}
+	h.sendMutex.Lock()
+	defer h.sendMutex.Unlock()
 
 	bodyBytes, err := json.Marshal(resp)
 	if err != nil {

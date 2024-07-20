@@ -7,9 +7,10 @@ import (
 )
 
 var addr = flag.String("addr", "localhost:30999", "http service address")
+var debug = flag.Bool("debug", false, "debug mode")
 
 func main() {
-	initLog()
+	initLog(debug)
 
 	flag.Parse()
 	h := server.Default(server.WithHostPorts(*addr))

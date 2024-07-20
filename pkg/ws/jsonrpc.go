@@ -8,7 +8,7 @@ import "encoding/json"
 type Request struct {
 	Method string           `json:"method"`
 	Params *json.RawMessage `json:"params"`
-	Id     *json.RawMessage `json:"id"`
+	Id     string           `json:"id"`
 }
 
 func (req *Request) String() string {
@@ -23,9 +23,9 @@ func (req *Request) String() string {
 // jsonrpc response
 
 type Response struct {
-	Id     *json.RawMessage `json:"id"`
-	Result any              `json:"result"`
-	Error  any              `json:"error"`
+	Id     string `json:"id"`
+	Result any    `json:"result"`
+	Error  any    `json:"error"`
 }
 
 type Error struct {
