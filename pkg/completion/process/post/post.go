@@ -8,6 +8,7 @@ type Processor interface {
 
 var processors = []Processor{
 	&MarkdownProcessor{},
+	&IndentProcessor{},
 }
 
 func Process(c *domain.CompletionContext, modelText string) string {
