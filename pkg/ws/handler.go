@@ -155,11 +155,17 @@ func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRe
 }
 
 func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
+	code := -1
+	var errWithCode *common.ErrWithCode
+	if errors.As(err, &errWithCode) {
+		code = errWithCode.Code
+	}
+
 	h.send(&Response{
 		Id:     wsRequest.Id,
 		Result: nil,
 		Error: &Error{
-			Code:    -1,
+			Code:    code,
 			Message: err.Error(),
 			Data:    nil,
 		},
