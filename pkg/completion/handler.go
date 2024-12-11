@@ -7,6 +7,7 @@ import (
 	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/completion/domain"
 	"open-copilot.dev/sidecar/pkg/completion/process/post"
+	"open-copilot.dev/sidecar/pkg/completion/process/pre"
 	"open-copilot.dev/sidecar/pkg/completion/prompt"
 	"open-copilot.dev/sidecar/pkg/engine/volcengine"
 )
@@ -16,6 +17,14 @@ func ProcessRequest(ctx *common.CancelableContext, request *domain.CompletionReq
 		Ctx:     ctx,
 		Request: request,
 	}
+	// 前置处理
+	if c.IsCanceled() {
+		return nil, common.ErrCanceled
+	}
+	if !pre.Process(c) {
+		return nil, common.ErrIgnored
+	}
+
 	// 组装Prompt
 	if c.IsCanceled() {
 		return nil, common.ErrCanceled
