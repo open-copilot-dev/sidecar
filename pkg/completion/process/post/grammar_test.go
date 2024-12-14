@@ -6,10 +6,13 @@ import (
 	"testing"
 )
 
-func TestOverlapPostProcessor_process(t *testing.T) {
-	m := &OverlapPostProcessor{}
+func TestGrammarPostProcessor_process(t *testing.T) {
+	m := &GrammarPostProcessor{}
 	c := &domain.CompletionContext{}
 	c.Request = &domain.CompletionRequest{
+		Language:         "Java",
+		TextBeforeCursor: "",
+		TextAfterCursor:  "",
 		CompletionLine: &domain.CompletionLine{
 			CurrentLineStartOffset: 0,
 			CurrentCursorOffset:    5,

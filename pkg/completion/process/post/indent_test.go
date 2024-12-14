@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestIndentProcessor_process(t *testing.T) {
-	m := &IndentProcessor{}
+func TestIndentPostProcessor_process(t *testing.T) {
+	m := &IndentPostProcessor{}
 	c := &domain.CompletionContext{}
 	c.Request = &domain.CompletionRequest{
 		CompletionLine: &domain.CompletionLine{

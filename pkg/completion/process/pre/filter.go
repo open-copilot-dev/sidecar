@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-type FilterProcessor struct {
+/////////////////////////////////////////////////////////////////////////////////////////
+// 前处理：过滤掉不必要的补全场景
+
+type FilterPreProcessor struct {
 }
 
 // 光标之前是这些字符时，停止补全
@@ -14,9 +17,9 @@ var cursorBeforeStopChars = []string{";", ")", "]", "}"}
 // 光标之后如果有字符，并且是这些字符时，才允许补全
 var cursorAfterAllowChars = []string{")", "]"}
 
-func (f *FilterProcessor) process(c *domain.CompletionContext) bool {
+func (f *FilterPreProcessor) process(c *domain.CompletionContext) State {
 	if c.IsCanceled() {
-		return false
+		return StateStop
 	}
 
 	// 光标前字符检查
@@ -24,7 +27,7 @@ func (f *FilterProcessor) process(c *domain.CompletionContext) bool {
 	lineTextBeforeCursor = strings.TrimSpace(lineTextBeforeCursor)
 	for _, char := range cursorBeforeStopChars {
 		if strings.HasSuffix(lineTextBeforeCursor, char) {
-			return false
+			return StateStop
 		}
 	}
 
@@ -34,11 +37,11 @@ func (f *FilterProcessor) process(c *domain.CompletionContext) bool {
 	if len(lineTextAfterCursor) > 0 {
 		for _, char := range cursorAfterAllowChars {
 			if strings.HasPrefix(lineTextAfterCursor, char) {
-				return true
+				return StateContinue
 			}
 		}
-		return false
+		return StateStop
 	}
 
-	return true
+	return StateContinue
 }

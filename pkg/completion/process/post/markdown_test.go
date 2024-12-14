@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestMarkdownProcessor_process(t *testing.T) {
-	markdownProcessor := MarkdownProcessor{}
+func TestMarkdownPostProcessor_process(t *testing.T) {
+	markdownProcessor := MarkdownPostProcessor{}
 	c := &domain.CompletionContext{}
 	var modelText string
 	var text string

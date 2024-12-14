@@ -7,9 +7,10 @@ type Processor interface {
 }
 
 var processors = []Processor{
-	&MarkdownProcessor{},
-	&IndentProcessor{},
-	&OverlapProcessor{},
+	&MarkdownPostProcessor{},
+	&IndentPostProcessor{},
+	&OverlapPostProcessor{},
+	&GrammarPostProcessor{},
 }
 
 func Process(c *domain.CompletionContext, modelText string) string {

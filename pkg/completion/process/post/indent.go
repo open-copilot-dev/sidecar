@@ -7,12 +7,12 @@ import (
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
-// 缩进修正
+// 后处理：缩进修正
 
-type IndentProcessor struct {
+type IndentPostProcessor struct {
 }
 
-func (m *IndentProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *IndentPostProcessor) process(c *domain.CompletionContext, modelText string) string {
 	if c.Request.CompletionLine.NextLineIndent <= 0 {
 		return modelText
 	}

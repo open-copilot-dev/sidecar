@@ -7,9 +7,9 @@ import (
 )
 
 ////////////////////////////////////////////////////////////////////////////////////////////
-// Markdown 解析
+// 后处理：Markdown 解析
 
-type MarkdownProcessor struct {
+type MarkdownPostProcessor struct {
 }
 
 var re1 = regexp.MustCompile("```[a-zA-Z]+\n([\\s\\S]*)\n```")
@@ -17,7 +17,7 @@ var re2 = regexp.MustCompile("```\n([\\s\\S]*)\n```")
 var re3 = regexp.MustCompile("```([\\s\\S]*)```")
 var re4 = regexp.MustCompile("`([\\s\\S]*)`")
 
-func (m *MarkdownProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *MarkdownPostProcessor) process(c *domain.CompletionContext, modelText string) string {
 	blockStartIndex := strings.Index(modelText, "```")
 	if blockStartIndex == -1 {
 		inlineStartIndex := strings.Index(modelText, "`")
