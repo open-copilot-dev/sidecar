@@ -8,12 +8,17 @@ import (
 type FilterProcessor struct {
 }
 
+// 光标在这些字符后面时，停止补全
 var stopChars = []string{";", ")", "]", "}"}
 
 func (f *FilterProcessor) process(c *domain.CompletionContext) bool {
-	lineText := strings.TrimSpace(c.Request.CompletionLine.LineText)
+	if c.IsCanceled() {
+		return false
+	}
+	lineTextBeforeCursor := c.Request.CompletionLine.GetLineTextBeforeCursor()
+	lineTextBeforeCursor = strings.TrimSpace(lineTextBeforeCursor)
 	for _, char := range stopChars {
-		if strings.HasSuffix(lineText, char) {
+		if strings.HasSuffix(lineTextBeforeCursor, char) {
 			return false
 		}
 	}

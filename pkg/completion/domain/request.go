@@ -2,15 +2,15 @@ package domain
 
 // CompletionRequest 代码补全请求
 type CompletionRequest struct {
-	UUID             string         `json:"uuid"`
-	ProjectPath      string         `json:"projectPath"`
-	DocPath          string         `json:"docPath"`
-	DocModifySeq     int            `json:"docModifySeq"`
-	Language         string         `json:"language"`
-	TextBeforeCursor string         `json:"textBeforeCursor"`
-	TextAfterCursor  string         `json:"textAfterCursor"`
-	CompletionLine   CompletionLine `json:"completionLine"`
-	TriggerType      string         `json:"triggerType"`
+	UUID             string          `json:"uuid"`
+	ProjectPath      string          `json:"projectPath"`
+	DocPath          string          `json:"docPath"`
+	DocModifySeq     int             `json:"docModifySeq"`
+	Language         string          `json:"language"`
+	TextBeforeCursor string          `json:"textBeforeCursor"`
+	TextAfterCursor  string          `json:"textAfterCursor"`
+	CompletionLine   *CompletionLine `json:"completionLine"`
+	TriggerType      string          `json:"triggerType"`
 }
 
 type CompletionLine struct {
@@ -20,4 +20,12 @@ type CompletionLine struct {
 	CurrentCursorOffset    int    `json:"currentCursorOffset"`
 	LineText               string `json:"lineText"`
 	NextLineIndent         int    `json:"nextLineIndent"`
+}
+
+func (l *CompletionLine) GetLineTextBeforeCursor() string {
+	lineCursorOffset := l.CurrentCursorOffset - l.CurrentLineStartOffset
+	if lineCursorOffset < 0 || lineCursorOffset > len(l.LineText) {
+		return ""
+	}
+	return l.LineText[:lineCursorOffset]
 }
