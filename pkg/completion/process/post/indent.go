@@ -19,7 +19,7 @@ func (m *IndentProcessor) process(c *domain.CompletionContext, modelText string)
 	lines := strings.Split(modelText, "\n")
 	for i, line := range lines {
 		if i == 0 {
-			lineTextBeforeCursor := c.Request.CompletionLine.GetLineTextBeforeCursor()
+			lineTextBeforeCursor := c.GetLineTextBeforeCursor()
 			if util.IsBlank(lineTextBeforeCursor) && len(lineTextBeforeCursor) == util.CalcIndent(line) {
 				// 首行的缩进是匹配的，则整体都不进行修正了
 				return modelText

@@ -10,7 +10,7 @@ type OverlapProcessor struct {
 
 func (m *OverlapProcessor) process(c *domain.CompletionContext, modelText string) string {
 	// 将光标之前的单词提取出来
-	lineTextBeforeCursor := c.Request.CompletionLine.GetLineTextBeforeCursor()
+	lineTextBeforeCursor := c.GetLineTextBeforeCursor()
 	words := strings.Fields(lineTextBeforeCursor)
 	if len(words) == 0 {
 		return modelText

@@ -21,11 +21,3 @@ type CompletionLine struct {
 	LineText               string `json:"lineText"`
 	NextLineIndent         int    `json:"nextLineIndent"`
 }
-
-func (l *CompletionLine) GetLineTextBeforeCursor() string {
-	lineCursorOffset := l.CurrentCursorOffset - l.CurrentLineStartOffset
-	if lineCursorOffset < 0 || lineCursorOffset > len(l.LineText) {
-		return ""
-	}
-	return l.LineText[:lineCursorOffset]
-}
