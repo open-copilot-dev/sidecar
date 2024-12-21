@@ -10,9 +10,11 @@ import (
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/hertz-contrib/websocket"
+	"open-copilot.dev/sidecar/pkg/chat"
+	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
 	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/completion"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	completionDomain "open-copilot.dev/sidecar/pkg/completion/domain"
 	"sync"
 )
 
@@ -21,7 +23,11 @@ var upgrader = websocket.HertzUpgrader{
 		return true
 	},
 }
+
+// 单个连接的消息缓冲池最大大小
 var wsMaxBufSize = 1024 * 1024 * 10
+
+// 消息处理协程池
 var wsPool = gopool.NewPool("ws", 1000, gopool.NewConfig())
 
 func Handler(ctx context.Context, c *app.RequestContext) {
@@ -55,14 +61,17 @@ func (h *wsConnHandler) spin(ctx context.Context) {
 		h.readBuf.Write(message)
 		h.processRequests(ctx)
 		if h.readBuf.Len() > wsMaxBufSize {
-			// TODO 这边应该断开连接，因为直接清空缓冲池，可能导致消息错乱
-			hlog.CtxErrorf(ctx, "ws readBuf is full, just clear it")
-			h.readBuf.Reset()
+			// 缓冲池满了，消息无法处理了，直接断开连接，客户端负责自动重试连接
+			hlog.CtxErrorf(ctx, "ws readBuf is full, just close the connection")
+			_ = h.conn.Close()
+			break
 		}
 	}
 
 	_ = h.conn.Close()
 }
+
+// -----------------------------------------------------------------
 
 // 处理 ws 消息
 func (h *wsConnHandler) processRequests(ctx context.Context) {
@@ -98,25 +107,29 @@ func (h *wsConnHandler) processRequest(ctx *common.CancelableContext, wsRequest 
 	// 处理 request
 	if wsRequest.Method == "completion" {
 		h.processCompletionRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "chat" {
+		h.processChatRequest(ctx, wsRequest)
 	} else if wsRequest.Method == "$/cancelRequest" {
 		h.processCancelRequest(ctx, wsRequest)
 	}
 }
 
+// 处理补全请求
 func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, wsRequest *Request) {
-	completionParams := make([]domain.CompletionRequest, 0)
-	err := json.Unmarshal(*wsRequest.Params, &completionParams)
+	wsParams := make([]completionDomain.CompletionRequest, 0)
+	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
 		h.sendError(wsRequest, err)
 		return
 	}
-	if len(completionParams) == 0 {
+	if len(wsParams) == 0 {
 		hlog.CtxErrorf(ctx, "ws completion params is empty")
 		h.sendError(wsRequest, errors.New("no completion params"))
 		return
 	}
-	completionResult, err := completion.ProcessRequest(ctx, &completionParams[0])
+	completionRequest := &wsParams[0]
+	completionResult, err := completion.ProcessRequest(ctx, completionRequest)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws completion err: %v", err)
 		h.sendError(wsRequest, err)
@@ -129,6 +142,35 @@ func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, 
 	return
 }
 
+// 处理对话请求
+func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	wsParams := make([]chatDomain.ChatRequest, 0)
+	err := json.Unmarshal(*wsRequest.Params, &wsParams)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	if len(wsParams) == 0 {
+		hlog.CtxErrorf(ctx, "ws chat params is empty")
+		h.sendError(wsRequest, errors.New("no chat params"))
+		return
+	}
+	chatRequest := &wsParams[0]
+	err = chat.ProcessRequest(ctx, chatRequest, func(streamResult *chatDomain.ChatStreamResult) {
+		h.send(&Response{
+			Id:     wsRequest.Id,
+			Result: streamResult,
+		})
+	})
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+}
+
+// 处理取消请求
 func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRequest *Request) {
 	type cancelParam struct {
 		ID string `json:"id"`
@@ -154,6 +196,7 @@ func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRe
 	}
 }
 
+// -----------------------------------------------------------------
 func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 	code := -1
 	var errWithCode *common.ErrWithCode
