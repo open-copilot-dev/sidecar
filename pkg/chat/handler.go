@@ -1,16 +1,22 @@
 package chat
 
 import (
+	"errors"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	volcModel "github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
 	"io"
 	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
 	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/engine/volcengine"
+	"strings"
 )
 
 func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatRequest,
 	onStreamResult func(streamResult *chatDomain.ChatStreamResult)) error {
+	if strings.TrimSpace(request.Content) == "" {
+		return errors.New("empty content")
+	}
+
 	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
 	modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
 		Role:    volcModel.ChatMessageRoleUser,
