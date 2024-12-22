@@ -3,6 +3,7 @@ package chat
 import (
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	volcModel "github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
+	"io"
 	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
 	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/engine/volcengine"
@@ -10,17 +11,11 @@ import (
 
 func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatRequest,
 	onStreamResult func(streamResult *chatDomain.ChatStreamResult)) error {
-	modelMessages := make([]*volcModel.ChatCompletionMessage, 0, len(request.Messages))
-	for _, message := range request.Messages {
-		role := volcModel.ChatMessageRoleSystem
-		if message.Role == "user" {
-			role = volcModel.ChatMessageRoleUser
-		}
-		modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
-			Role:    role,
-			Content: &volcModel.ChatCompletionMessageContent{StringValue: &message.Content},
-		})
-	}
+	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
+	modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
+		Role:    volcModel.ChatMessageRoleUser,
+		Content: &volcModel.ChatCompletionMessageContent{StringValue: &request.Content},
+	})
 
 	if ctx.IsCanceled() {
 		return common.ErrCanceled
@@ -40,11 +35,16 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		}
 		resp, err := modelStreamResponse.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 			return err
 		}
 		for _, choice := range resp.Choices {
 			onStreamResult(&chatDomain.ChatStreamResult{
+				ChatID:     request.ChatID,
+				MessageID:  resp.ID,
 				Index:      choice.Index,
 				Content:    choice.Delta.Content,
 				IsFinished: modelStreamResponse.IsFinished,

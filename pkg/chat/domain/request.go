@@ -1,17 +1,14 @@
 package domain
 
 type ChatRequest struct {
-	UUID     string         `json:"uuid"`
-	Messages []*ChatMessage `json:"messages"`
-}
-
-type ChatMessage struct {
+	ChatID  string `json:"chatID"`
 	Content string `json:"content"`
-	Role    string `json:"role"`
 }
 
 type ChatStreamResult struct {
+	ChatID     string `json:"chatID"`
+	MessageID  string `json:"messageID"`
 	Index      int    `json:"index"`
 	Content    string `json:"content"`
-	IsFinished bool   `json:"is_finished"`
+	IsFinished bool   `json:"isFinished"`
 }

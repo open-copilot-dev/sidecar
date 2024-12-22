@@ -6,9 +6,10 @@ import "encoding/json"
 // jsonrpc request
 
 type Request struct {
-	Method string           `json:"method"`
-	Params *json.RawMessage `json:"params"`
-	Id     string           `json:"id"`
+	Jsonrpc string           `json:"jsonrpc"`
+	Method  string           `json:"method"`
+	Params  *json.RawMessage `json:"params"`
+	Id      string           `json:"id"`
 }
 
 func (req *Request) String() string {
@@ -23,9 +24,10 @@ func (req *Request) String() string {
 // jsonrpc response
 
 type Response struct {
-	Id     string `json:"id"`
-	Result any    `json:"result"`
-	Error  any    `json:"error"`
+	Jsonrpc string `json:"jsonrpc"`
+	Id      string `json:"id"`
+	Result  any    `json:"result"`
+	Error   any    `json:"error"`
 }
 
 type Error struct {

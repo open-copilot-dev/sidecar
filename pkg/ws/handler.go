@@ -136,8 +136,9 @@ func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, 
 		return
 	}
 	h.send(&Response{
-		Id:     wsRequest.Id,
-		Result: completionResult,
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  completionResult,
 	})
 	return
 }
@@ -159,8 +160,9 @@ func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequ
 	chatRequest := &wsParams[0]
 	err = chat.ProcessRequest(ctx, chatRequest, func(streamResult *chatDomain.ChatStreamResult) {
 		h.send(&Response{
-			Id:     wsRequest.Id,
-			Result: streamResult,
+			Jsonrpc: "2.0",
+			Id:      wsRequest.Id,
+			Result:  streamResult,
 		})
 	})
 	if err != nil {
@@ -205,8 +207,9 @@ func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 	}
 
 	h.send(&Response{
-		Id:     wsRequest.Id,
-		Result: nil,
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  nil,
 		Error: &Error{
 			Code:    code,
 			Message: err.Error(),
