@@ -37,7 +37,9 @@ func ReadFrame(buf *bytes.Buffer) *Frame {
 	header, readLen := ReadFrameHeader(bs)
 	if header == nil {
 		// 未能成功读取 header
-		hlog.Warn("failed to read frame header")
+		if !isEmptyBuffer(bs) {
+			hlog.Warn("failed to read frame header")
+		}
 		return nil
 	}
 	if header.ContentLength <= 0 {
@@ -56,6 +58,16 @@ func ReadFrame(buf *bytes.Buffer) *Frame {
 		Header: header,
 		Body:   body,
 	}
+}
+
+// 判断缓冲区是否存在回车之外的字符
+func isEmptyBuffer(bs []byte) bool {
+	for _, b := range bs {
+		if b != 13 && b != 10 {
+			return false
+		}
+	}
+	return true
 }
 
 func ReadFrameHeader(bs []byte) (*FrameHeader, int) {
