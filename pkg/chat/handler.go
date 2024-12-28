@@ -35,8 +35,14 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 		return err
 	}
+	var messageID string
+	var index int
 	for {
 		if modelStreamResponse.IsFinished {
+			break
+		}
+		if ctx.IsCanceled() {
+			_ = modelStreamResponse.Close()
 			break
 		}
 		resp, err := modelStreamResponse.Recv()
@@ -47,7 +53,9 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 			hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 			return err
 		}
+		messageID = resp.ID
 		for _, choice := range resp.Choices {
+			index = choice.Index
 			onStreamResult(&chatDomain.ChatStreamResult{
 				ChatID:     request.ChatID,
 				MessageID:  resp.ID,
@@ -57,5 +65,12 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 			})
 		}
 	}
+	onStreamResult(&chatDomain.ChatStreamResult{
+		ChatID:     request.ChatID,
+		MessageID:  messageID,
+		Index:      index + 1,
+		Content:    "",
+		IsFinished: true,
+	})
 	return nil
 }
