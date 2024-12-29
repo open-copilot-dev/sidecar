@@ -109,3 +109,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 	}
 	return nil
 }
+
+func ProcessDetailRequest(ctx *common.CancelableContext, chatID string) (*chatDomain.Chat, error) {
+	return chatStore.GetChat(chatID)
+}

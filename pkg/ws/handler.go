@@ -109,6 +109,8 @@ func (h *wsConnHandler) processRequest(ctx *common.CancelableContext, wsRequest 
 		h.processCompletionRequest(ctx, wsRequest)
 	} else if wsRequest.Method == "chat" {
 		h.processChatRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "chat/detail" {
+		h.processChatDetailRequest(ctx, wsRequest)
 	} else if wsRequest.Method == "$/cancelRequest" {
 		h.processCancelRequest(ctx, wsRequest)
 	}
@@ -170,6 +172,32 @@ func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequ
 		h.sendError(wsRequest, err)
 		return
 	}
+}
+func (h *wsConnHandler) processChatDetailRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	wsParams := make([]string, 0)
+	err := json.Unmarshal(*wsRequest.Params, &wsParams)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	if len(wsParams) == 0 {
+		hlog.CtxErrorf(ctx, "ws chat detail params is empty")
+		h.sendError(wsRequest, errors.New("no chat detail params"))
+		return
+	}
+	chatID := wsParams[0]
+	chatDetail, err := chat.ProcessDetailRequest(ctx, chatID)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat detail err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  chatDetail,
+	})
 }
 
 // 处理取消请求
