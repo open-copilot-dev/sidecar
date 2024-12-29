@@ -8,8 +8,12 @@ import (
 	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
 	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/engine/volcengine"
+	"open-copilot.dev/sidecar/pkg/util"
+	"path/filepath"
 	"strings"
 )
+
+var chatStore Store = NewLocalStore(filepath.Join(common.BaseDir, "data/chats"))
 
 func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatRequest,
 	onStreamResult func(streamResult *chatDomain.ChatStreamResult)) error {
@@ -17,11 +21,32 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		return errors.New("empty content")
 	}
 
-	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
-	modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
+	// 获取chat信息
+	chat, err := chatStore.GetChat(request.ChatID)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "get chat err: %v", err)
+	}
+	if chat == nil {
+		chat = &chatDomain.Chat{
+			ChatID:   request.ChatID,
+			Messages: make([]*chatDomain.ChatMessage, 0),
+		}
+	}
+	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
+		Content: request.Content,
 		Role:    volcModel.ChatMessageRoleUser,
-		Content: &volcModel.ChatCompletionMessageContent{StringValue: &request.Content},
 	})
+	if chat.Title == "" {
+		chat.Title = util.TruncateString(chat.Messages[0].Content, 20)
+	}
+
+	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
+	for _, message := range chat.Messages {
+		modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
+			Role:    message.Role,
+			Content: &volcModel.ChatCompletionMessageContent{StringValue: &message.Content},
+		})
+	}
 
 	if ctx.IsCanceled() {
 		return common.ErrCanceled
@@ -35,6 +60,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 		return err
 	}
+	var content = ""
 	var messageID string
 	var index int
 	for {
@@ -63,6 +89,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 				Content:    choice.Delta.Content,
 				IsFinished: modelStreamResponse.IsFinished,
 			})
+			content += choice.Delta.Content
 		}
 	}
 	onStreamResult(&chatDomain.ChatStreamResult{
@@ -72,5 +99,13 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		Content:    "",
 		IsFinished: true,
 	})
+	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
+		Content: content,
+		Role:    volcModel.ChatMessageRoleAssistant,
+	})
+	err = chatStore.SaveChat(chat)
+	if err != nil {
+		hlog.CtxErrorf(ctx.Context, "save chat failed, err: %v", err)
+	}
 	return nil
 }

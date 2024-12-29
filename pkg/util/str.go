@@ -13,3 +13,10 @@ func CalcIndent(str string) int {
 func IsBlank(str string) bool {
 	return strings.TrimSpace(str) == ""
 }
+
+func TruncateString(content string, cnt int) string {
+	if len(content) > cnt {
+		return content[:cnt]
+	}
+	return content
+}
