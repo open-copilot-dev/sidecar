@@ -11,6 +11,7 @@ import (
 	"open-copilot.dev/sidecar/pkg/util"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var chatStore Store = NewLocalStore(filepath.Join(common.BaseDir, "data/chats"))
@@ -33,8 +34,10 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		}
 	}
 	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
-		Content: request.Content,
-		Role:    volcModel.ChatMessageRoleUser,
+		MessageID: "",
+		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
+		Content:   request.Content,
+		Role:      volcModel.ChatMessageRoleUser,
 	})
 	if chat.Title == "" {
 		chat.Title = util.TruncateString(chat.Messages[0].Content, 20)
@@ -99,9 +102,12 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		Content:    "",
 		IsFinished: true,
 	})
+	chat.Messages[len(chat.Messages)-1].MessageID = "user_" + messageID
 	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
-		Content: content,
-		Role:    volcModel.ChatMessageRoleAssistant,
+		MessageID: messageID,
+		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
+		Content:   content,
+		Role:      volcModel.ChatMessageRoleAssistant,
 	})
 	err = chatStore.SaveChat(chat)
 	if err != nil {

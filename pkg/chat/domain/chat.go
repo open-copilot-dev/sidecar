@@ -8,6 +8,8 @@ type Chat struct {
 }
 
 type ChatMessage struct {
-	Content string `json:"content"` // message content
-	Role    string `json:"role"`    // user or assistant
+	MessageID string `json:"messageID"` // message id
+	DateTime  string `json:"dateTime"`  // message create time
+	Content   string `json:"content"`   // message content
+	Role      string `json:"role"`      // user or assistant
 }
