@@ -111,6 +111,12 @@ func (h *wsConnHandler) processRequest(ctx *common.CancelableContext, wsRequest 
 		h.processChatRequest(ctx, wsRequest)
 	} else if wsRequest.Method == "chat/detail" {
 		h.processChatDetailRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "chat/list" {
+		h.processChatListRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "chat/delete" {
+		h.processChatDeleteRequest(ctx, wsRequest)
+	} else if wsRequest.Method == "chat/deleteAll" {
+		h.processChatDeleteAllRequest(ctx, wsRequest)
 	} else if wsRequest.Method == "$/cancelRequest" {
 		h.processCancelRequest(ctx, wsRequest)
 	}
@@ -197,6 +203,58 @@ func (h *wsConnHandler) processChatDetailRequest(ctx *common.CancelableContext, 
 		Jsonrpc: "2.0",
 		Id:      wsRequest.Id,
 		Result:  chatDetail,
+	})
+}
+func (h *wsConnHandler) processChatListRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	chats, err := chat.ProcessListRequest(ctx)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat list err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  chats,
+	})
+}
+func (h *wsConnHandler) processChatDeleteRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	wsParams := make([]string, 0)
+	err := json.Unmarshal(*wsRequest.Params, &wsParams)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	if len(wsParams) == 0 {
+		hlog.CtxErrorf(ctx, "ws chat delete params is empty")
+		h.sendError(wsRequest, errors.New("no chat delete params"))
+		return
+	}
+	chatID := wsParams[0]
+	err = chat.ProcessDeleteRequest(ctx, chatID)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat delete err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  true,
+	})
+}
+func (h *wsConnHandler) processChatDeleteAllRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	err := chat.ProcessDeleteAllRequest(ctx)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat delete all err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  true,
 	})
 }
 

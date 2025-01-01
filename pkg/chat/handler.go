@@ -109,6 +109,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		Content:   content,
 		Role:      volcModel.ChatMessageRoleAssistant,
 	})
+	chat.LastChatTime = chat.Messages[len(chat.Messages)-1].DateTime
 	err = chatStore.SaveChat(chat)
 	if err != nil {
 		hlog.CtxErrorf(ctx.Context, "save chat failed, err: %v", err)
@@ -118,4 +119,26 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 
 func ProcessDetailRequest(ctx *common.CancelableContext, chatID string) (*chatDomain.Chat, error) {
 	return chatStore.GetChat(chatID)
+}
+
+func ProcessListRequest(ctx *common.CancelableContext) ([]*chatDomain.Chat, error) {
+	_, chats, err := chatStore.ListChats(1, 100)
+	if err != nil {
+		hlog.CtxErrorf(ctx.Context, "list chats failed, err: %v", err)
+		return nil, err
+	}
+	// 将不需要的内容置空，减少传输量
+	for _, chat := range chats {
+		chat.System = ""
+		chat.Messages = nil
+	}
+	return chats, nil
+}
+
+func ProcessDeleteRequest(ctx *common.CancelableContext, chatID string) error {
+	return chatStore.DeleteChat(chatID)
+}
+
+func ProcessDeleteAllRequest(ctx *common.CancelableContext) error {
+	return chatStore.DeleteAllChats()
 }

@@ -16,6 +16,7 @@ type Store interface {
 	SaveChat(chat *domain.Chat) error
 	GetChat(chatID string) (*domain.Chat, error)
 	DeleteChat(chatID string) error
+	DeleteAllChats() error
 }
 
 //----------------------------------------------------------------
@@ -39,6 +40,9 @@ func (l *LocalStore) ListChats(curPage, pageSize int) (int, []*domain.Chat, erro
 	if err != nil {
 		return 0, nil, common.NewErrWithCause(common.ErrCodeIo, "walk dir failed", err)
 	}
+	if len(files) == 0 {
+		return 0, []*domain.Chat{}, nil
+	}
 
 	// sort by time
 	sort.Slice(files, func(i, j int) bool {
@@ -56,6 +60,9 @@ func (l *LocalStore) ListChats(curPage, pageSize int) (int, []*domain.Chat, erro
 	}
 	if curPage*pageSize > len(files) {
 		curPage = len(files) / pageSize
+		if len(files)%pageSize > 0 {
+			curPage++
+		}
 	}
 	chats := make([]*domain.Chat, 0, pageSize)
 	for i := (curPage - 1) * pageSize; i < curPage*pageSize; i++ {
@@ -63,7 +70,7 @@ func (l *LocalStore) ListChats(curPage, pageSize int) (int, []*domain.Chat, erro
 			break
 		}
 		entry := files[i]
-		chat, err := l.GetChat(entry.Name())
+		chat, err := l.GetChat(strings.TrimSuffix(entry.Name(), ".json"))
 		if err != nil {
 			return 0, nil, err
 		}
@@ -112,6 +119,15 @@ func (l *LocalStore) DeleteChat(chatID string) error {
 		return common.NewErrWithCause(common.ErrCodeIo, "delete file failed", err)
 	}
 	return nil
+}
+
+func (l *LocalStore) DeleteAllChats() error {
+	err := os.RemoveAll(l.dir)
+	if err != nil {
+		return common.NewErrWithCause(common.ErrCodeIo, "delete dir failed", err)
+	}
+	_ = os.MkdirAll(l.dir, 0o755)
+	return err
 }
 
 func NewLocalStore(dir string) *LocalStore {
