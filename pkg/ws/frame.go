@@ -8,8 +8,9 @@ import (
 )
 
 /*
-兼容 lsp 规定的消息格式 https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/
-
+compacted with lsp message format:
+https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/
+```
 	Content-Length: ...\r\n
 	\r\n
 	{
@@ -20,6 +21,7 @@ import (
 			...
 		}
 	}
+```
 */
 
 type Frame struct {
@@ -36,14 +38,14 @@ func ReadFrame(buf *bytes.Buffer) *Frame {
 
 	header, readLen := ReadFrameHeader(bs)
 	if header == nil {
-		// 未能成功读取 header
-		if !isEmptyBuffer(bs) {
+		// failed read frame header
+		if isBufferNotCRLF(bs) {
 			hlog.Warn("failed to read frame header")
 		}
 		return nil
 	}
 	if header.ContentLength <= 0 {
-		// 不合法的 header 跳过
+		// skip invalid frame header
 		hlog.Warnf("invalid frame header, skip %d bytes", readLen)
 		buf.Next(readLen)
 		return nil
@@ -60,14 +62,14 @@ func ReadFrame(buf *bytes.Buffer) *Frame {
 	}
 }
 
-// 判断缓冲区是否存在回车之外的字符
-func isEmptyBuffer(bs []byte) bool {
+// check if buffer contains non-CRLF characters
+func isBufferNotCRLF(bs []byte) bool {
 	for _, b := range bs {
 		if b != 13 && b != 10 {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func ReadFrameHeader(bs []byte) (*FrameHeader, int) {
@@ -83,16 +85,16 @@ func ReadFrameHeader(bs []byte) (*FrameHeader, int) {
 		bs = bs[idx+1:]
 		if line == "" || line == "\n" || line == "\r\n" {
 			if contentLength == nil {
-				// 空行，还没遇到header
+				// empty line, connect-length is null, continue read
 				continue
 			} else {
-				// 空行，代表header结束了
+				// empty line, connect-length is not null, header is finished
 				break
 			}
 		}
 		colon := strings.IndexRune(line, ':')
 		if colon < 0 {
-			// 此行在header中是非法的，跳过
+			// skip invalid header line
 			hlog.Warn("invalid header line: " + line)
 			continue
 		}

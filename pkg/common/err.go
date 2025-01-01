@@ -8,6 +8,7 @@ import (
 var (
 	ErrCodeCanceled = 10000
 	ErrCodeIgnored  = 10001
+	ErrCodeIllegal  = 10002
 	ErrCodeNotFound = 10004
 )
 
@@ -21,6 +22,7 @@ var (
 	ErrCanceled = NewErr(ErrCodeCanceled, "canceled")
 	ErrIgnored  = NewErr(ErrCodeIgnored, "ignored")
 	ErrNotFound = NewErr(ErrCodeNotFound, "not found")
+	ErrIllegal  = NewErr(ErrCodeIllegal, "illegal")
 )
 
 //--------------------------------------------------------------------

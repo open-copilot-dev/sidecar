@@ -24,10 +24,10 @@ var upgrader = websocket.HertzUpgrader{
 	},
 }
 
-// 单个连接的消息缓冲池最大大小
+// buf size of each connection
 var wsMaxBufSize = 1024 * 1024 * 10
 
-// 消息处理协程池
+// connection process pool
 var wsPool = gopool.NewPool("ws", 1000, gopool.NewConfig())
 
 func Handler(ctx context.Context, c *app.RequestContext) {
@@ -43,10 +43,10 @@ func Handler(ctx context.Context, c *app.RequestContext) {
 
 // websocket connection handler
 type wsConnHandler struct {
-	conn      *websocket.Conn // 连接
-	readBuf   bytes.Buffer    // 消息读取缓冲
-	sendMutex sync.Mutex      // 消息发送锁
-	reqCtxMap sync.Map        // 请求上下文
+	conn      *websocket.Conn // connection
+	readBuf   bytes.Buffer    // message buffer
+	sendMutex sync.Mutex      // message send lock
+	reqCtxMap sync.Map        // request context map, key: requestID
 }
 
 // ws message spin
@@ -59,9 +59,9 @@ func (h *wsConnHandler) spin(ctx context.Context) {
 		}
 		hlog.CtxDebugf(ctx, "ws recv: %s", message)
 		h.readBuf.Write(message)
-		h.processRequests(ctx)
+		h.parseAndHandleRequests(ctx)
 		if h.readBuf.Len() > wsMaxBufSize {
-			// 缓冲池满了，消息无法处理了，直接断开连接，客户端负责自动重试连接
+			// buffer is full, just close the connection, client will retry connect
 			hlog.CtxErrorf(ctx, "ws readBuf is full, just close the connection")
 			_ = h.conn.Close()
 			break
@@ -73,56 +73,61 @@ func (h *wsConnHandler) spin(ctx context.Context) {
 
 // -----------------------------------------------------------------
 
-// 处理 ws 消息
-func (h *wsConnHandler) processRequests(ctx context.Context) {
+// parse ws request and handle it
+func (h *wsConnHandler) parseAndHandleRequests(ctx context.Context) {
 	for {
-		// 获取数据帧
+		// read ws data frame
 		frame := ReadFrame(&h.readBuf)
 		if frame == nil {
 			return
 		}
 
-		// 解析 request
+		// parse ws request
 		var wsRequest = new(Request)
 		err := json.Unmarshal(frame.Body, &wsRequest)
 		if err != nil {
-			hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+			hlog.CtxErrorf(ctx, "ws request unmarshal err: %v", err)
 			continue
 		}
-		hlog.CtxDebugf(ctx, "wsRequest: %s", wsRequest.String())
+		hlog.CtxDebugf(ctx, "recv ws request: %s", wsRequest.String())
 
-		// 请求上下文
+		// create request context and store to context map
 		reqCtx := common.NewCancelableContext(context.WithValue(ctx, "X-Request-ID", wsRequest.Id))
 		h.reqCtxMap.Store(wsRequest.Id, reqCtx)
 
-		// 异步处理
+		// async process request
 		wsPool.Go(func() {
 			defer h.reqCtxMap.Delete(wsRequest.Id)
-			h.processRequest(reqCtx, wsRequest)
+			h.handleRequest(reqCtx, wsRequest)
 		})
 	}
 }
 
-func (h *wsConnHandler) processRequest(ctx *common.CancelableContext, wsRequest *Request) {
-	// 处理 request
-	if wsRequest.Method == "completion" {
+// handleRequest handle single request
+func (h *wsConnHandler) handleRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	switch wsRequest.Method {
+	case "completion":
 		h.processCompletionRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "chat" {
+	case "chat":
 		h.processChatRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "chat/detail" {
+	case "chat/detail":
 		h.processChatDetailRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "chat/list" {
+	case "chat/list":
 		h.processChatListRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "chat/delete" {
+	case "chat/delete":
 		h.processChatDeleteRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "chat/deleteAll" {
+	case "chat/deleteAll":
 		h.processChatDeleteAllRequest(ctx, wsRequest)
-	} else if wsRequest.Method == "$/cancelRequest" {
+	case "$/cancelRequest":
 		h.processCancelRequest(ctx, wsRequest)
+	default:
+		h.sendError(wsRequest, common.ErrIllegal)
 	}
 }
 
-// 处理补全请求
+// -----------------------------------------------------------------
+
+// process completion request
 func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, wsRequest *Request) {
 	wsParams := make([]completionDomain.CompletionRequest, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
@@ -151,7 +156,7 @@ func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, 
 	return
 }
 
-// 处理对话请求
+// process chat request
 func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequest *Request) {
 	wsParams := make([]chatDomain.ChatRequest, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
@@ -258,7 +263,9 @@ func (h *wsConnHandler) processChatDeleteAllRequest(ctx *common.CancelableContex
 	})
 }
 
-// 处理取消请求
+// -----------------------------------------------------------------
+
+// process cancel request
 func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRequest *Request) {
 	type cancelParam struct {
 		ID string `json:"id"`
@@ -285,6 +292,8 @@ func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRe
 }
 
 // -----------------------------------------------------------------
+
+// send err resp
 func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 	code := -1
 	var errWithCode *common.ErrWithCode
@@ -304,6 +313,7 @@ func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 	})
 }
 
+// send resp
 func (h *wsConnHandler) send(resp *Response) {
 	if resp.Id == "" {
 		hlog.Errorf("will not send because resp id is empty, resp: %+v", *resp)
