@@ -40,7 +40,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		Role:      volcModel.ChatMessageRoleUser,
 	})
 	if chat.Title == "" {
-		chat.Title = util.TruncateString(chat.Messages[0].Content, 20)
+		chat.Title = util.TruncateString(chat.Messages[0].Content, 50)
 	}
 
 	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
