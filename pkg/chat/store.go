@@ -15,6 +15,7 @@ type Store interface {
 	ListChats(curPage, pageSize int) (int, []*domain.Chat, error)
 	SaveChat(chat *domain.Chat) error
 	GetChat(chatID string) (*domain.Chat, error)
+	DeleteChatMessage(chatID string, messageID string) error
 	DeleteChat(chatID string) error
 	DeleteAllChats() error
 }
@@ -106,6 +107,24 @@ func (l *LocalStore) GetChat(chatID string) (*domain.Chat, error) {
 		return nil, common.NewErrWithCause(common.ErrCodeMarshal, "unmarshal file failed", err)
 	}
 	return &chat, nil
+}
+
+func (l *LocalStore) DeleteChatMessage(chatID string, messageID string) error {
+	chat, err := l.GetChat(chatID)
+	if err != nil {
+		return err
+	}
+	newMessages := make([]*domain.ChatMessage, 0)
+	for _, message := range chat.Messages {
+		if message.MessageID != messageID {
+			newMessages = append(newMessages, message)
+		}
+	}
+	chat.Messages = newMessages
+	if len(chat.Messages) == 0 {
+		return l.DeleteChat(chatID)
+	}
+	return l.SaveChat(chat)
 }
 
 func (l *LocalStore) DeleteChat(chatID string) error {

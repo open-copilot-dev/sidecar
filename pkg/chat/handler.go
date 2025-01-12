@@ -34,7 +34,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		}
 	}
 	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
-		MessageID: "",
+		MessageID: request.MessageID,
 		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		Content:   request.Content,
 		Role:      volcModel.ChatMessageRoleUser,
@@ -63,8 +63,8 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 		return err
 	}
+	var responseID = ""
 	var content = ""
-	var messageID string
 	var index int
 	for {
 		if modelStreamResponse.IsFinished {
@@ -82,12 +82,13 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 			hlog.CtxErrorf(ctx, "Failed to chat completion request: %v", err)
 			return err
 		}
-		messageID = resp.ID
+		responseID = resp.ID
 		for _, choice := range resp.Choices {
 			index = choice.Index
 			onStreamResult(&chatDomain.ChatStreamResult{
 				ChatID:     request.ChatID,
-				MessageID:  resp.ID,
+				MessageID:  request.MessageID,
+				ResponseID: responseID,
 				Index:      choice.Index,
 				Content:    choice.Delta.Content,
 				IsFinished: modelStreamResponse.IsFinished,
@@ -97,14 +98,14 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 	}
 	onStreamResult(&chatDomain.ChatStreamResult{
 		ChatID:     request.ChatID,
-		MessageID:  messageID,
+		MessageID:  request.MessageID,
+		ResponseID: responseID,
 		Index:      index + 1,
 		Content:    "",
 		IsFinished: true,
 	})
-	chat.Messages[len(chat.Messages)-1].MessageID = "user_" + messageID
 	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
-		MessageID: messageID,
+		MessageID: request.MessageID,
 		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		Content:   content,
 		Role:      volcModel.ChatMessageRoleAssistant,
@@ -133,6 +134,10 @@ func ProcessListRequest(ctx *common.CancelableContext) ([]*chatDomain.Chat, erro
 		chat.Messages = nil
 	}
 	return chats, nil
+}
+
+func ProcessDeleteMessageRequest(ctx *common.CancelableContext, chatID string, messageID string) error {
+	return chatStore.DeleteChatMessage(chatID, messageID)
 }
 
 func ProcessDeleteRequest(ctx *common.CancelableContext, chatID string) error {

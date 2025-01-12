@@ -114,6 +114,8 @@ func (h *wsConnHandler) handleRequest(ctx *common.CancelableContext, wsRequest *
 		h.processChatDetailRequest(ctx, wsRequest)
 	case "chat/list":
 		h.processChatListRequest(ctx, wsRequest)
+	case "chat/deleteMessage":
+		h.processChatMessageDeleteRequest(ctx, wsRequest)
 	case "chat/delete":
 		h.processChatDeleteRequest(ctx, wsRequest)
 	case "chat/deleteAll":
@@ -221,6 +223,33 @@ func (h *wsConnHandler) processChatListRequest(ctx *common.CancelableContext, ws
 		Jsonrpc: "2.0",
 		Id:      wsRequest.Id,
 		Result:  chats,
+	})
+}
+func (h *wsConnHandler) processChatMessageDeleteRequest(ctx *common.CancelableContext, wsRequest *Request) {
+	wsParams := make([]string, 0)
+	err := json.Unmarshal(*wsRequest.Params, &wsParams)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	if len(wsParams) < 2 {
+		hlog.CtxErrorf(ctx, "ws chat delete message params missing")
+		h.sendError(wsRequest, errors.New("missing chat delete message params"))
+		return
+	}
+	chatID := wsParams[0]
+	messageID := wsParams[1]
+	err = chat.ProcessDeleteMessageRequest(ctx, chatID, messageID)
+	if err != nil {
+		hlog.CtxErrorf(ctx, "ws chat message delete err: %v", err)
+		h.sendError(wsRequest, err)
+		return
+	}
+	h.send(&Response{
+		Jsonrpc: "2.0",
+		Id:      wsRequest.Id,
+		Result:  true,
 	})
 }
 func (h *wsConnHandler) processChatDeleteRequest(ctx *common.CancelableContext, wsRequest *Request) {
