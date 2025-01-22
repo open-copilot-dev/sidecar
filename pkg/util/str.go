@@ -1,6 +1,7 @@
 package util
 
 import (
+	"encoding/json"
 	"strings"
 )
 
@@ -19,4 +20,12 @@ func TruncateString(content string, cnt int) string {
 		return content[:cnt]
 	}
 	return content
+}
+
+func TryToJson(object any) string {
+	bytes, err := json.Marshal(object)
+	if err != nil {
+		return ""
+	}
+	return string(bytes)
 }
