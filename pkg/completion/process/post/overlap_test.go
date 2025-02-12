@@ -2,13 +2,14 @@ package post
 
 import (
 	"github.com/stretchr/testify/assert"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
+	"open-copilot.dev/sidecar/pkg/domain"
 	"testing"
 )
 
 func TestOverlapPostProcessor_process(t *testing.T) {
 	m := &OverlapPostProcessor{}
-	c := &domain.CompletionContext{}
+	c := &context.CompletionContext{}
 	c.Request = &domain.CompletionRequest{
 		CompletionLine: &domain.CompletionLine{
 			CurrentLineStartOffset: 0,

@@ -1,9 +1,11 @@
 package post
 
-import "open-copilot.dev/sidecar/pkg/completion/domain"
+import (
+	"open-copilot.dev/sidecar/pkg/completion/context"
+)
 
 type Processor interface {
-	process(c *domain.CompletionContext, modelText string) string
+	process(c *context.CompletionContext, modelText string) string
 }
 
 var processors = []Processor{
@@ -13,7 +15,7 @@ var processors = []Processor{
 	&GrammarPostProcessor{},
 }
 
-func Process(c *domain.CompletionContext, modelText string) string {
+func Process(c *context.CompletionContext, modelText string) string {
 	for _, processor := range processors {
 		modelText = processor.process(c, modelText)
 	}

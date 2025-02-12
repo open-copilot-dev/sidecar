@@ -3,41 +3,39 @@ package completion
 import (
 	"encoding/json"
 	"github.com/cloudwego/hertz/pkg/common/hlog"
-	volcModel "github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
-	"open-copilot.dev/sidecar/pkg/common"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"open-copilot.dev/sidecar/pkg/completion/process/post"
 	"open-copilot.dev/sidecar/pkg/completion/process/pre"
 	"open-copilot.dev/sidecar/pkg/completion/prompt"
-	"open-copilot.dev/sidecar/pkg/engine/volcengine"
+	"open-copilot.dev/sidecar/pkg/domain"
+	"open-copilot.dev/sidecar/pkg/llm"
 )
 
-func ProcessRequest(ctx *common.CancelableContext, request *domain.CompletionRequest) (*domain.CompletionResult, error) {
-	c := &domain.CompletionContext{
+func ProcessRequest(ctx *domain.CancelableContext, request *domain.CompletionRequest) (*domain.CompletionResult, error) {
+	c := &context.CompletionContext{
 		Ctx:     ctx,
 		Request: request,
 	}
 	// 前置处理
 	if c.IsCanceled() {
-		return nil, common.ErrCanceled
+		return nil, domain.ErrCanceled
 	}
 	if !pre.Process(c) {
-		return nil, common.ErrIgnored
+		return nil, domain.ErrIgnored
 	}
 
 	// 组装Prompt
 	if c.IsCanceled() {
-		return nil, common.ErrCanceled
+		return nil, domain.ErrCanceled
 	}
 	messages := prompt.Build(c)
 
 	// 发起调用
 	if c.IsCanceled() {
-		return nil, common.ErrCanceled
+		return nil, domain.ErrCanceled
 	}
-	client := volcengine.NewClient("659b5a99-0614-48ee-a04c-bee4d96d2e83")
-	modelResponse, err := client.CreateChatCompletion(ctx, volcModel.ChatCompletionRequest{
-		Model:    "ep-20240703013553-wjlhr",
+	client := llm.GetClient(request.LlmClientName)
+	modelResponse, err := client.CreateChatCompletion(ctx, &domain.ChatCompletionRequest{
 		Messages: messages,
 	})
 	if err != nil {
@@ -49,7 +47,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *domain.CompletionReq
 
 	// 处理返回结果
 	if c.IsCanceled() {
-		return nil, common.ErrCanceled
+		return nil, domain.ErrCanceled
 	}
 	choices := make([]*domain.CompletionChoice, 0, len(modelResponse.Choices))
 	for _, modelChoice := range modelResponse.Choices {
@@ -65,7 +63,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *domain.CompletionReq
 	}, nil
 }
 
-func convertModelChoice(c *domain.CompletionContext, modelChoice *volcModel.ChatCompletionChoice) *domain.CompletionChoice {
+func convertModelChoice(c *context.CompletionContext, modelChoice *domain.ChatCompletionChoice) *domain.CompletionChoice {
 	if modelChoice == nil || modelChoice.Message.Content == nil || modelChoice.Message.Content.StringValue == nil {
 		return nil
 	}

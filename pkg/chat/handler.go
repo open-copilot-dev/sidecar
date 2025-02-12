@@ -5,19 +5,18 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	volcModel "github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
 	"io"
-	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
-	"open-copilot.dev/sidecar/pkg/common"
-	"open-copilot.dev/sidecar/pkg/engine/volcengine"
+	"open-copilot.dev/sidecar/pkg/domain"
+	"open-copilot.dev/sidecar/pkg/llm"
 	"open-copilot.dev/sidecar/pkg/util"
 	"path/filepath"
 	"strings"
 	"time"
 )
 
-var chatStore Store = NewLocalStore(filepath.Join(common.BaseDir, "data/chats"))
+var chatStore Store = NewLocalStore(filepath.Join(domain.BaseDir, "data/chats"))
 
-func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatRequest,
-	onStreamResult func(streamResult *chatDomain.ChatStreamResult)) error {
+func ProcessRequest(ctx *domain.CancelableContext, request *domain.ChatRequest,
+	onStreamResult func(streamResult *domain.ChatStreamResult)) error {
 	if strings.TrimSpace(request.Content) == "" {
 		return errors.New("empty content")
 	}
@@ -28,35 +27,34 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		hlog.CtxErrorf(ctx, "get chat err: %v", err)
 	}
 	if chat == nil {
-		chat = &chatDomain.Chat{
+		chat = &domain.Chat{
 			ChatID:   request.ChatID,
-			Messages: make([]*chatDomain.ChatMessage, 0),
+			Messages: make([]*domain.ChatMessage, 0),
 		}
 	}
-	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
+	chat.Messages = append(chat.Messages, &domain.ChatMessage{
 		MessageID: request.MessageID,
 		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		Content:   request.Content,
-		Role:      volcModel.ChatMessageRoleUser,
+		Role:      domain.ChatMessageRoleUser,
 	})
 	if chat.Title == "" {
 		chat.Title = util.TruncateString(chat.Messages[0].Content, 50)
 	}
 
-	modelMessages := make([]*volcModel.ChatCompletionMessage, 0)
+	modelMessages := make([]*domain.ChatCompletionMessage, 0)
 	for _, message := range chat.Messages {
-		modelMessages = append(modelMessages, &volcModel.ChatCompletionMessage{
+		modelMessages = append(modelMessages, &domain.ChatCompletionMessage{
 			Role:    message.Role,
-			Content: &volcModel.ChatCompletionMessageContent{StringValue: &message.Content},
+			Content: &domain.ChatCompletionMessageContent{StringValue: &message.Content},
 		})
 	}
 
 	if ctx.IsCanceled() {
-		return common.ErrCanceled
+		return domain.ErrCanceled
 	}
-	client := volcengine.NewClient("659b5a99-0614-48ee-a04c-bee4d96d2e83")
-	modelStreamResponse, err := client.CreateChatCompletionStream(ctx, volcModel.ChatCompletionRequest{
-		Model:    "ep-20240703013553-wjlhr",
+	client := llm.GetClient(request.LlmClientName)
+	modelStreamResponse, err := client.CreateChatCompletionStream(ctx, &domain.ChatCompletionRequest{
 		Messages: modelMessages,
 	})
 	if err != nil {
@@ -67,9 +65,6 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 	var content = ""
 	var index int
 	for {
-		if modelStreamResponse.IsFinished {
-			break
-		}
 		if ctx.IsCanceled() {
 			_ = modelStreamResponse.Close()
 			break
@@ -85,18 +80,18 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		responseID = resp.ID
 		for _, choice := range resp.Choices {
 			index = choice.Index
-			onStreamResult(&chatDomain.ChatStreamResult{
+			onStreamResult(&domain.ChatStreamResult{
 				ChatID:     request.ChatID,
 				MessageID:  request.MessageID,
 				ResponseID: responseID,
 				Index:      choice.Index,
 				Content:    choice.Delta.Content,
-				IsFinished: modelStreamResponse.IsFinished,
+				IsFinished: false,
 			})
 			content += choice.Delta.Content
 		}
 	}
-	onStreamResult(&chatDomain.ChatStreamResult{
+	onStreamResult(&domain.ChatStreamResult{
 		ChatID:     request.ChatID,
 		MessageID:  request.MessageID,
 		ResponseID: responseID,
@@ -104,7 +99,7 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 		Content:    "",
 		IsFinished: true,
 	})
-	chat.Messages = append(chat.Messages, &chatDomain.ChatMessage{
+	chat.Messages = append(chat.Messages, &domain.ChatMessage{
 		MessageID: request.MessageID,
 		DateTime:  time.Now().Format("2006-01-02 15:04:05"),
 		Content:   content,
@@ -118,11 +113,11 @@ func ProcessRequest(ctx *common.CancelableContext, request *chatDomain.ChatReque
 	return nil
 }
 
-func ProcessDetailRequest(ctx *common.CancelableContext, chatID string) (*chatDomain.Chat, error) {
+func ProcessDetailRequest(ctx *domain.CancelableContext, chatID string) (*domain.Chat, error) {
 	return chatStore.GetChat(chatID)
 }
 
-func ProcessListRequest(ctx *common.CancelableContext) ([]*chatDomain.Chat, error) {
+func ProcessListRequest(ctx *domain.CancelableContext) ([]*domain.Chat, error) {
 	_, chats, err := chatStore.ListChats(1, 100)
 	if err != nil {
 		hlog.CtxErrorf(ctx.Context, "list chats failed, err: %v", err)
@@ -136,14 +131,14 @@ func ProcessListRequest(ctx *common.CancelableContext) ([]*chatDomain.Chat, erro
 	return chats, nil
 }
 
-func ProcessDeleteMessageRequest(ctx *common.CancelableContext, chatID string, messageID string) error {
+func ProcessDeleteMessageRequest(ctx *domain.CancelableContext, chatID string, messageID string) error {
 	return chatStore.DeleteChatMessage(chatID, messageID)
 }
 
-func ProcessDeleteRequest(ctx *common.CancelableContext, chatID string) error {
+func ProcessDeleteRequest(ctx *domain.CancelableContext, chatID string) error {
 	return chatStore.DeleteChat(chatID)
 }
 
-func ProcessDeleteAllRequest(ctx *common.CancelableContext) error {
+func ProcessDeleteAllRequest(ctx *domain.CancelableContext) error {
 	return chatStore.DeleteAllChats()
 }

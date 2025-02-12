@@ -1,7 +1,7 @@
 package post
 
 import (
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"regexp"
 	"strings"
 )
@@ -17,7 +17,7 @@ var re2 = regexp.MustCompile("```\n([\\s\\S]*)\n```")
 var re3 = regexp.MustCompile("```([\\s\\S]*)```")
 var re4 = regexp.MustCompile("`([\\s\\S]*)`")
 
-func (m *MarkdownPostProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *MarkdownPostProcessor) process(c *context.CompletionContext, modelText string) string {
 	blockStartIndex := strings.Index(modelText, "```")
 	if blockStartIndex == -1 {
 		inlineStartIndex := strings.Index(modelText, "`")

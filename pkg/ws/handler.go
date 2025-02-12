@@ -11,10 +11,8 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	"github.com/hertz-contrib/websocket"
 	"open-copilot.dev/sidecar/pkg/chat"
-	chatDomain "open-copilot.dev/sidecar/pkg/chat/domain"
-	"open-copilot.dev/sidecar/pkg/common"
 	"open-copilot.dev/sidecar/pkg/completion"
-	completionDomain "open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/domain"
 	"sync"
 )
 
@@ -92,7 +90,7 @@ func (h *wsConnHandler) parseAndHandleRequests(ctx context.Context) {
 		hlog.CtxDebugf(ctx, "recv ws request: %s", wsRequest.String())
 
 		// create request context and store to context map
-		reqCtx := common.NewCancelableContext(context.WithValue(ctx, "X-Request-ID", wsRequest.Id))
+		reqCtx := domain.NewCancelableContext(context.WithValue(ctx, "X-Request-ID", wsRequest.Id))
 		h.reqCtxMap.Store(wsRequest.Id, reqCtx)
 
 		// async process request
@@ -104,7 +102,7 @@ func (h *wsConnHandler) parseAndHandleRequests(ctx context.Context) {
 }
 
 // handleRequest handle single request
-func (h *wsConnHandler) handleRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) handleRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	switch wsRequest.Method {
 	case "completion":
 		h.processCompletionRequest(ctx, wsRequest)
@@ -123,15 +121,15 @@ func (h *wsConnHandler) handleRequest(ctx *common.CancelableContext, wsRequest *
 	case "$/cancelRequest":
 		h.processCancelRequest(ctx, wsRequest)
 	default:
-		h.sendError(wsRequest, common.ErrIllegal)
+		h.sendError(wsRequest, domain.ErrIllegal)
 	}
 }
 
 // -----------------------------------------------------------------
 
 // process completion request
-func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, wsRequest *Request) {
-	wsParams := make([]completionDomain.CompletionRequest, 0)
+func (h *wsConnHandler) processCompletionRequest(ctx *domain.CancelableContext, wsRequest *Request) {
+	wsParams := make([]domain.CompletionRequest, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
@@ -159,8 +157,8 @@ func (h *wsConnHandler) processCompletionRequest(ctx *common.CancelableContext, 
 }
 
 // process chat request
-func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequest *Request) {
-	wsParams := make([]chatDomain.ChatRequest, 0)
+func (h *wsConnHandler) processChatRequest(ctx *domain.CancelableContext, wsRequest *Request) {
+	wsParams := make([]domain.ChatRequest, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws unmarshal: %v", err)
@@ -173,7 +171,7 @@ func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequ
 		return
 	}
 	chatRequest := &wsParams[0]
-	err = chat.ProcessRequest(ctx, chatRequest, func(streamResult *chatDomain.ChatStreamResult) {
+	err = chat.ProcessRequest(ctx, chatRequest, func(streamResult *domain.ChatStreamResult) {
 		h.send(&Response{
 			Jsonrpc: "2.0",
 			Id:      wsRequest.Id,
@@ -186,7 +184,7 @@ func (h *wsConnHandler) processChatRequest(ctx *common.CancelableContext, wsRequ
 		return
 	}
 }
-func (h *wsConnHandler) processChatDetailRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processChatDetailRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	wsParams := make([]string, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
@@ -212,7 +210,7 @@ func (h *wsConnHandler) processChatDetailRequest(ctx *common.CancelableContext, 
 		Result:  chatDetail,
 	})
 }
-func (h *wsConnHandler) processChatListRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processChatListRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	chats, err := chat.ProcessListRequest(ctx)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws chat list err: %v", err)
@@ -225,7 +223,7 @@ func (h *wsConnHandler) processChatListRequest(ctx *common.CancelableContext, ws
 		Result:  chats,
 	})
 }
-func (h *wsConnHandler) processChatMessageDeleteRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processChatMessageDeleteRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	wsParams := make([]string, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
@@ -252,7 +250,7 @@ func (h *wsConnHandler) processChatMessageDeleteRequest(ctx *common.CancelableCo
 		Result:  true,
 	})
 }
-func (h *wsConnHandler) processChatDeleteRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processChatDeleteRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	wsParams := make([]string, 0)
 	err := json.Unmarshal(*wsRequest.Params, &wsParams)
 	if err != nil {
@@ -278,7 +276,7 @@ func (h *wsConnHandler) processChatDeleteRequest(ctx *common.CancelableContext, 
 		Result:  true,
 	})
 }
-func (h *wsConnHandler) processChatDeleteAllRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processChatDeleteAllRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	err := chat.ProcessDeleteAllRequest(ctx)
 	if err != nil {
 		hlog.CtxErrorf(ctx, "ws chat delete all err: %v", err)
@@ -295,7 +293,7 @@ func (h *wsConnHandler) processChatDeleteAllRequest(ctx *common.CancelableContex
 // -----------------------------------------------------------------
 
 // process cancel request
-func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRequest *Request) {
+func (h *wsConnHandler) processCancelRequest(ctx *domain.CancelableContext, wsRequest *Request) {
 	type cancelParam struct {
 		ID string `json:"id"`
 	}
@@ -314,7 +312,7 @@ func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRe
 	if !ok {
 		return
 	}
-	willCancelReqCtx := val.(*common.CancelableContext)
+	willCancelReqCtx := val.(*domain.CancelableContext)
 	if willCancelReqCtx != nil {
 		willCancelReqCtx.Cancel()
 	}
@@ -325,7 +323,7 @@ func (h *wsConnHandler) processCancelRequest(ctx *common.CancelableContext, wsRe
 // send err resp
 func (h *wsConnHandler) sendError(wsRequest *Request, err error) {
 	code := -1
-	var errWithCode *common.ErrWithCode
+	var errWithCode *domain.ErrWithCode
 	if errors.As(err, &errWithCode) {
 		code = errWithCode.Code
 	}

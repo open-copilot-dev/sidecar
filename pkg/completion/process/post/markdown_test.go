@@ -2,13 +2,13 @@ package post
 
 import (
 	"github.com/stretchr/testify/assert"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"testing"
 )
 
 func TestMarkdownPostProcessor_process(t *testing.T) {
 	markdownProcessor := MarkdownPostProcessor{}
-	c := &domain.CompletionContext{}
+	c := &context.CompletionContext{}
 	var modelText string
 	var text string
 

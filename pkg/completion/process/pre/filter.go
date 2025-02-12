@@ -1,7 +1,7 @@
 package pre
 
 import (
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"strings"
 )
 
@@ -17,7 +17,7 @@ var cursorBeforeStopChars = []string{";", ")", "]", "}"}
 // 光标之后如果有字符，并且是这些字符时，才允许补全
 var cursorAfterAllowChars = []string{")", "]"}
 
-func (f *FilterPreProcessor) process(c *domain.CompletionContext) State {
+func (f *FilterPreProcessor) process(c *context.CompletionContext) State {
 	if c.IsCanceled() {
 		return StateStop
 	}

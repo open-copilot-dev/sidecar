@@ -4,7 +4,7 @@ import (
 	"github.com/cloudwego/hertz/pkg/common/hlog"
 	sitter "github.com/smacker/go-tree-sitter"
 	"open-copilot.dev/sidecar/pkg/ast"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 )
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -13,7 +13,7 @@ import (
 type GrammarPostProcessor struct {
 }
 
-func (m *GrammarPostProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *GrammarPostProcessor) process(c *context.CompletionContext, modelText string) string {
 	lang := ast.GetLanguage(c.Request.Language)
 	if lang == nil {
 		return modelText

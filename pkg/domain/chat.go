@@ -1,5 +1,21 @@
 package domain
 
+type ChatRequest struct {
+	LlmClientName string `json:"llmClientName"`
+	ChatID        string `json:"chatID"`
+	MessageID     string `json:"messageID"`
+	Content       string `json:"content"`
+}
+
+type ChatStreamResult struct {
+	ChatID     string `json:"chatID"`
+	MessageID  string `json:"messageID"`
+	ResponseID string `json:"responseID"`
+	Index      int    `json:"index"`
+	Content    string `json:"content"`
+	IsFinished bool   `json:"isFinished"`
+}
+
 type Chat struct {
 	ChatID       string         `json:"chatID"`       // chat id
 	Title        string         `json:"title"`        // chat title

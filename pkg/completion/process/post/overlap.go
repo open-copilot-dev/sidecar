@@ -1,7 +1,7 @@
 package post
 
 import (
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"strings"
 )
 
@@ -11,7 +11,7 @@ import (
 type OverlapPostProcessor struct {
 }
 
-func (m *OverlapPostProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *OverlapPostProcessor) process(c *context.CompletionContext, modelText string) string {
 	// 将光标之前的单词提取出来
 	lineTextBeforeCursor := c.GetLineTextBeforeCursor()
 	words := strings.Fields(lineTextBeforeCursor)

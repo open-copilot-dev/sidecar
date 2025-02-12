@@ -1,13 +1,13 @@
-package domain
+package context
 
 import (
 	sitter "github.com/smacker/go-tree-sitter"
-	"open-copilot.dev/sidecar/pkg/common"
+	"open-copilot.dev/sidecar/pkg/domain"
 )
 
 type CompletionContext struct {
-	Ctx      *common.CancelableContext
-	Request  *CompletionRequest
+	Ctx      *domain.CancelableContext
+	Request  *domain.CompletionRequest
 	Ast      *CompletionAst
 	Relevant *CompletionRelevant
 }
@@ -41,7 +41,7 @@ type CompletionAst struct {
 	// current completion node
 	Node *sitter.Node
 	// current completion cursor grammar type
-	CursorType CursorGrammarType
+	CursorType domain.CursorGrammarType
 }
 
 type CompletionRelevant struct {

@@ -1,9 +1,11 @@
 package pre
 
-import "open-copilot.dev/sidecar/pkg/completion/domain"
+import (
+	"open-copilot.dev/sidecar/pkg/completion/context"
+)
 
 type Processor interface {
-	process(c *domain.CompletionContext) State
+	process(c *context.CompletionContext) State
 }
 
 var processors = []Processor{
@@ -16,7 +18,7 @@ type State bool
 var StateContinue State = true
 var StateStop State = false
 
-func Process(c *domain.CompletionContext) State {
+func Process(c *context.CompletionContext) State {
 	for _, processor := range processors {
 		if !processor.process(c) {
 			return false

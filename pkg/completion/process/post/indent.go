@@ -1,7 +1,7 @@
 package post
 
 import (
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
 	"open-copilot.dev/sidecar/pkg/util"
 	"strings"
 )
@@ -12,7 +12,7 @@ import (
 type IndentPostProcessor struct {
 }
 
-func (m *IndentPostProcessor) process(c *domain.CompletionContext, modelText string) string {
+func (m *IndentPostProcessor) process(c *context.CompletionContext, modelText string) string {
 	lines := strings.Split(modelText, "\n")
 	for i, line := range lines {
 		if i == 0 {

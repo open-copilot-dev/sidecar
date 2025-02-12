@@ -1,13 +1,12 @@
 package prompt
 
 import (
-	volcModel "github.com/volcengine/volcengine-go-sdk/service/arkruntime/model"
-	"github.com/volcengine/volcengine-go-sdk/volcengine"
-	"open-copilot.dev/sidecar/pkg/completion/domain"
+	"open-copilot.dev/sidecar/pkg/completion/context"
+	"open-copilot.dev/sidecar/pkg/domain"
 	"strings"
 )
 
-func Build(c *domain.CompletionContext) []*volcModel.ChatCompletionMessage {
+func Build(c *context.CompletionContext) []*domain.ChatCompletionMessage {
 	request := c.Request
 
 	prompt := strings.Builder{}
@@ -26,18 +25,14 @@ func Build(c *domain.CompletionContext) []*volcModel.ChatCompletionMessage {
 	prompt.WriteString("1. 补全出来的代码内容与前文、后文代码拼接之后，能够正确编译，并且符合逻辑。\n")
 	prompt.WriteString("2. 请只返回光标处要补全的代码，以markdown形式返回。\n")
 
-	return []*volcModel.ChatCompletionMessage{
+	return []*domain.ChatCompletionMessage{
 		{
-			Role: volcModel.ChatMessageRoleSystem,
-			Content: &volcModel.ChatCompletionMessageContent{
-				StringValue: volcengine.String("你是一个智能代码补全助手"),
-			},
+			Role:    domain.ChatMessageRoleSystem,
+			Content: domain.NewStringMessageContent("你是一个智能代码补全助手"),
 		},
 		{
-			Role: volcModel.ChatMessageRoleUser,
-			Content: &volcModel.ChatCompletionMessageContent{
-				StringValue: volcengine.String(prompt.String()),
-			},
+			Role:    domain.ChatMessageRoleUser,
+			Content: domain.NewStringMessageContent(prompt.String()),
 		},
 	}
 }

@@ -3,8 +3,7 @@ package chat
 import (
 	"encoding/json"
 	"io/fs"
-	"open-copilot.dev/sidecar/pkg/chat/domain"
-	"open-copilot.dev/sidecar/pkg/common"
+	"open-copilot.dev/sidecar/pkg/domain"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,7 +38,7 @@ func (l *LocalStore) ListChats(curPage, pageSize int) (int, []*domain.Chat, erro
 		return nil
 	})
 	if err != nil {
-		return 0, nil, common.NewErrWithCause(common.ErrCodeIo, "walk dir failed", err)
+		return 0, nil, domain.NewErrWithCause(domain.ErrCodeIo, "walk dir failed", err)
 	}
 	if len(files) == 0 {
 		return 0, []*domain.Chat{}, nil
@@ -84,10 +83,10 @@ func (l *LocalStore) SaveChat(chat *domain.Chat) error {
 	path := filepath.Join(l.dir, chat.ChatID+".json")
 	content, err := json.Marshal(chat)
 	if err != nil {
-		return common.NewErrWithCause(common.ErrCodeMarshal, "marshal chat failed", err)
+		return domain.NewErrWithCause(domain.ErrCodeMarshal, "marshal chat failed", err)
 	}
 	if err := os.WriteFile(path, content, 0644); err != nil {
-		return common.NewErrWithCause(common.ErrCodeIo, "write file failed", err)
+		return domain.NewErrWithCause(domain.ErrCodeIo, "write file failed", err)
 	}
 	return nil
 }
@@ -95,16 +94,16 @@ func (l *LocalStore) SaveChat(chat *domain.Chat) error {
 func (l *LocalStore) GetChat(chatID string) (*domain.Chat, error) {
 	path := filepath.Join(l.dir, chatID+".json")
 	if _, err := os.Stat(path); err != nil && os.IsNotExist(err) {
-		return nil, common.ErrNotFound
+		return nil, domain.ErrNotFound
 	}
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, common.NewErrWithCause(common.ErrCodeIo, "read file failed", err)
+		return nil, domain.NewErrWithCause(domain.ErrCodeIo, "read file failed", err)
 	}
 	var chat = domain.Chat{}
 	if err := json.Unmarshal(content, &chat); err != nil {
-		return nil, common.NewErrWithCause(common.ErrCodeMarshal, "unmarshal file failed", err)
+		return nil, domain.NewErrWithCause(domain.ErrCodeMarshal, "unmarshal file failed", err)
 	}
 	return &chat, nil
 }
@@ -135,7 +134,7 @@ func (l *LocalStore) DeleteChat(chatID string) error {
 	}
 
 	if err := os.Remove(path); err != nil {
-		return common.NewErrWithCause(common.ErrCodeIo, "delete file failed", err)
+		return domain.NewErrWithCause(domain.ErrCodeIo, "delete file failed", err)
 	}
 	return nil
 }
@@ -143,7 +142,7 @@ func (l *LocalStore) DeleteChat(chatID string) error {
 func (l *LocalStore) DeleteAllChats() error {
 	err := os.RemoveAll(l.dir)
 	if err != nil {
-		return common.NewErrWithCause(common.ErrCodeIo, "delete dir failed", err)
+		return domain.NewErrWithCause(domain.ErrCodeIo, "delete dir failed", err)
 	}
 	_ = os.MkdirAll(l.dir, 0o755)
 	return err
