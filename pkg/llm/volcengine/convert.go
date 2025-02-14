@@ -62,6 +62,9 @@ func convertChoiceMessage(volcMessage volcModel.ChatCompletionMessage) *domain.C
 	}
 }
 func convertUsage(volcUsage *volcModel.Usage) *domain.ChatPromptUsage {
+	if volcUsage == nil {
+		return nil
+	}
 	return &domain.ChatPromptUsage{
 		PromptTokens:     volcUsage.PromptTokens,
 		CompletionTokens: volcUsage.CompletionTokens,
