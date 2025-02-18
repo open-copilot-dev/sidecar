@@ -1,6 +1,6 @@
 package domain
 
-type LlmConfig struct {
+type LlmSetting struct {
 	Platform string
 	ApiKey   string
 	Model    string

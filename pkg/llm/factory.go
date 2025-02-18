@@ -6,14 +6,14 @@ import (
 	"open-copilot.dev/sidecar/pkg/llm/volcengine"
 )
 
-func NewClient(cfg *domain.LlmConfig) Client {
-	switch cfg.Platform {
+func NewClient(llmSetting *domain.LlmSetting) Client {
+	switch llmSetting.Platform {
 	case "openai":
-		return openai.NewClient(cfg.ApiKey, cfg.Model)
+		return openai.NewClient(llmSetting.ApiKey, llmSetting.Model)
 	case "volcengine":
-		return volcengine.NewClient(cfg.ApiKey, cfg.Model)
+		return volcengine.NewClient(llmSetting.ApiKey, llmSetting.Model)
 	default:
-		return openai.NewClient(cfg.ApiKey, cfg.Model)
+		return openai.NewClient(llmSetting.ApiKey, llmSetting.Model)
 	}
 }
 
